@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>巧克力歷年價格</title>
+    <link rel="stylesheet" href="/stylesheets/style.css">
+</head>
+<body>
+    <nav class="main-nav">
+        <ul>
+            <li><button type="button" class="menu-btn" data-target="add">新增巧克力價格</button></li>
+            <li><button type="button" class="menu-btn" data-target="date">查詢日期</button></li>
+            <li><button type="button" class="menu-btn" data-target="range">查詢日期區間</button></li>
+            <li><button type="button" class="menu-btn" data-target="price">查詢價格區間</button></li>
+        </ul>
+    </nav>
+    <div class="main-title">巧克力歷年價格</div>
+    <section id="add-section" class="feature-section" style="display:block;">
+        <h2>新增巧克力價格資料</h2>
+        <form id="chocolateForm" onsubmit="return false;">
+            <label for="productName">商品名稱：</label>
+            <input type="text" id="productName" name="productName" required>
+            <label for="date">日期：</label>
+            <input type="month" id="date" name="date" required>
+            <label for="price">價格：</label>
+            <input type="number" id="price" name="price" step="0.01" required>
+            <label for="annualGrowthRate">年增率：</label>
+            <input type="number" id="annualGrowthRate" name="annualGrowthRate" step="0.01">
+            <button type="submit">送出</button>
+        </form>
+    </section>
+    <section id="date-section" class="feature-section" style="display:none;">
+        <h2>查詢日期</h2>
+        <form id="dateForm" onsubmit="return false;">
+            <label for="queryDate">日期：</label>
+            <input type="month" id="queryDate" name="queryDate" required>
+            <button type="submit">查詢</button>
+        </form>
+    </section>
+    <section id="range-section" class="feature-section" style="display:none;">
+        <h2>查詢日期區間</h2>
+        <form id="rangeForm" class="query-form" onsubmit="return false;">
+            <label for="startDate">起始日期：</label>
+            <input type="month" id="startDate" name="startDate" required>
+            <label for="endDate">結束日期：</label>
+            <input type="month" id="endDate" name="endDate" required>
+            <button type="submit">查詢</button>
+        </form>
+    </section>
+    <section id="price-section" class="feature-section" style="display:none;">
+        <h2>查詢價格區間</h2>
+        <form id="priceRangeForm" class="query-form" onsubmit="return false;">
+            <label for="minPrice">最低價格：</label>
+            <input type="number" id="minPrice" name="minPrice" step="0.01" required>
+            <label for="maxPrice">最高價格：</label>
+            <input type="number" id="maxPrice" name="maxPrice" step="0.01" required>
+            <button type="submit">查詢</button>
+        </form>
+    </section>
+    <div id="queryResult"></div>
+    <script>
+      // 功能選單切換（只用JS控制display，不用CSS class切換）
+      document.querySelectorAll('.menu-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          document.querySelectorAll('.feature-section').forEach(sec => sec.style.display = 'none');
+          document.querySelectorAll('.menu-btn').forEach(b => {
+            b.style.background = '';
+            b.style.color = '';
+          });
+          const target = document.getElementById(this.dataset.target + '-section');
+          if (target) target.style.display = 'block';
+          this.style.background = '#6b3e26';
+          this.style.color = '#ffe4c4';
+          document.getElementById('queryResult').innerHTML = '';
+        });
+      });
+
+      // 新增巧克力價格
+      document.getElementById('chocolateForm').addEventListener('submit', async function() {
+        const ProductName = document.getElementById('productName').value;
+        const Date = document.getElementById('date').value;
+        const Price = document.getElementById('price').value;
+        const AnnualGrowthRate = document.getElementById('annualGrowthRate').value;
+        const res = await fetch('/api/insert', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ProductName, Date, Price, AnnualGrowthRate })
+        });
+        const json = await res.json();
+        if (json.success) {
+          showSuccessModal();
+          document.getElementById('queryResult').innerHTML = '';
+        } else {
+          showFailModal();
+          document.getElementById('queryResult').innerHTML = '';
+        }
+      });
+
+      // 查詢單一日期
+      document.getElementById('dateForm').addEventListener('submit', async function() {
+        const date = document.getElementById('queryDate').value;
+        const res = await fetch(`/api?date=${date}`);
+        const json = await res.json();
+        let html = '';
+        if (json.data && json.data.length > 0) {
+          html = '<table class="result-table"><thead><tr><th>商品名稱</th><th>日期</th><th>價格</th><th>年增率</th></tr></thead><tbody>';
+          html += json.data.map(row => `<tr><td>${row.ProductName}</td><td>${row.Date}</td><td>${row.Price}</td><td>${row.AnnualGrowthRate ?? ''}</td></tr>`).join('');
+          html += '</tbody></table>';
+          document.getElementById('queryResult').innerHTML = html;
+        } else {
+          // 顯示查無資料視窗
+          showNoDataModal();
+          document.getElementById('queryResult').innerHTML = '';
+        }
+      });
+
+      // 查詢日期區間
+      document.getElementById('rangeForm').addEventListener('submit', async function() {
+        const start = document.getElementById('startDate').value;
+        const end = document.getElementById('endDate').value;
+        const res = await fetch(`/api/range?start=${start}&end=${end}`);
+        const json = await res.json();
+        let html = '';
+        if (json.data && json.data.length > 0) {
+          html = '<table class="result-table"><thead><tr><th>商品名稱</th><th>日期</th><th>價格</th><th>年增率</th></tr></thead><tbody>';
+          html += json.data.map(row => `<tr><td>${row.ProductName}</td><td>${row.Date}</td><td>${row.Price}</td><td>${row.AnnualGrowthRate ?? ''}</td></tr>`).join('');
+          html += '</tbody></table>';
+          document.getElementById('queryResult').innerHTML = html;
+        } else {
+          // 顯示查無資料視窗
+          showNoDataModal();
+          document.getElementById('queryResult').innerHTML = '';
+        }
+      });
+
+      // 查詢價格區間
+      document.getElementById('priceRangeForm').addEventListener('submit', async function() {
+        const min = document.getElementById('minPrice').value;
+        const max = document.getElementById('maxPrice').value;
+        const res = await fetch(`/api/price-range?min=${min}&max=${max}`);
+        const json = await res.json();
+        let html = '';
+        if (json.data && json.data.length > 0) {
+          html = '<table class="result-table"><thead><tr><th>商品名稱</th><th>日期</th><th>價格</th><th>年增率</th></tr></thead><tbody>';
+          html += json.data.map(row => `<tr><td>${row.ProductName}</td><td>${row.Date}</td><td>${row.Price}</td><td>${row.AnnualGrowthRate ?? ''}</td></tr>`).join('');
+          html += '</tbody></table>';
+          document.getElementById('queryResult').innerHTML = html;
+        } else {
+          // 顯示查無資料視窗
+          showNoDataModal();
+          document.getElementById('queryResult').innerHTML = '';
+        }
+      });
+
+      function showNoDataModal() {
+        document.getElementById('noDataModal').style.display = 'flex';
+      }
+      function closeNoDataModal() {
+        document.getElementById('noDataModal').style.display = 'none';
+      }
+      function showSuccessModal() {
+        document.getElementById('successModal').style.display = 'flex';
+      }
+      function closeSuccessModal() {
+        document.getElementById('successModal').style.display = 'none';
+      }
+      function showFailModal() {
+        document.getElementById('failModal').style.display = 'flex';
+      }
+      function closeFailModal() {
+        document.getElementById('failModal').style.display = 'none';
+      }
+    </script>
+    <!-- 查無資料 Modal -->
+    <div id="noDataModal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.3);z-index:9999;justify-content:center;align-items:center;">
+      <div style="background:#fff;padding:32px 48px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.2);text-align:center;">
+        <div style="font-size:20px;margin-bottom:16px;">查無資料</div>
+        <button onclick="closeNoDataModal()" style="padding:8px 24px;font-size:16px;">關閉</button>
+      </div>
+    </div>
+    <!-- 新增成功 Modal -->
+    <div id="successModal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.3);z-index:9999;justify-content:center;align-items:center;">
+      <div style="background:#fff;padding:32px 48px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.2);text-align:center;">
+        <div style="font-size:20px;margin-bottom:16px;color:#2e7d32;">新增成功！</div>
+        <button onclick="closeSuccessModal()" style="padding:8px 24px;font-size:16px;">關閉</button>
+      </div>
+    </div>
+    <!-- 新增失敗 Modal -->
+    <div id="failModal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.3);z-index:9999;justify-content:center;align-items:center;">
+      <div style="background:#fff;padding:32px 48px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.2);text-align:center;">
+        <div style="font-size:20px;margin-bottom:16px;color:#c62828;">新增失敗，已有相同日期資料！</div>
+        <button onclick="closeFailModal()" style="padding:8px 24px;font-size:16px;">關閉</button>
+      </div>
+    </div>
+</body>
+</html>
+
